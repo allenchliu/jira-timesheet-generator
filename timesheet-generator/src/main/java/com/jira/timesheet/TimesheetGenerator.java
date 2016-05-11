@@ -6,9 +6,10 @@ import java.lang.reflect.Field;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.csv.CSVFormat;
@@ -59,11 +60,11 @@ public class TimesheetGenerator {
 
         try {
             JiraClient jira = prepareJiraClient(username, password);
-            Map<Date, IssuesStats> timesheet = parseTimesheet(username, startDate, jira, countLoggedWork);
-            System.out.println();
-            System.out.println("Saving to CSV...");
-            saveToCsv(startDate, timesheet, countLoggedWork, username);
-            System.out.println();
+            List<WorkLog> timesheet = parseTimesheet(username, startDate, jira, countLoggedWork);
+            // System.out.println();
+            // System.out.println("Saving to CSV...");
+            // saveToCsv(startDate, timesheet, countLoggedWork, username);
+            // System.out.println();
             System.out.println("TIMESHEET GENERATED SUCCESSFULLY");
         }
         catch (JiraException ex) {
@@ -94,13 +95,13 @@ public class TimesheetGenerator {
      * @throws JiraException
      *             In case anything went wrong.
      */
-    private static Map<Date, IssuesStats> parseTimesheet(String username, Date startDate, JiraClient jira, boolean countLoggedWork) throws JiraException {
-        Map<Date, IssuesStats> timesheet = new HashMap<Date, IssuesStats>();
-        String jql = "updated >= '" + new SimpleDateFormat("yyyy-M-d").format(startDate) + "' and (worklogAuthor  = " + username + ")";
+    private static List<WorkLog> parseTimesheet(String username, Date startDate, JiraClient jira, boolean countLoggedWork) throws JiraException {
+        List<WorkLog> timesheet = new ArrayList<WorkLog>();
+        String jql = "worklogDate >= '" + new SimpleDateFormat("yyyy-M-d").format(startDate) + "' and (worklogAuthor  = " + username + ")";
         System.out.println("Searching for issues by JQL: " + jql + "...");
         SearchResult result = jira.searchIssues(jql, countLoggedWork ? "*all,-comment" : "summary", "changelog", 1000, 0);
 
-        System.out.print("Parsing ");
+        System.out.println("Parsing " + result.issues.size() + " issues");
         for (Issue issue : result.issues) {
             System.out.print(issue + " ");
             // for (ChangeLogEntry entry : issue.getChangeLog().getEntries()) {
@@ -112,18 +113,17 @@ public class TimesheetGenerator {
             // timesheet.get(date).addIssue(date, issue, username);
             // }
             // }
-            String hours = "";
+            String hours = " ";
             for (WorkLog workLog : issue.getAllWorkLogs()) {
                 if (workLog.getAuthor().getName().equalsIgnoreCase(username)) {
-                    hours += workLog.getTimeSpent();
-                    hours += workLog.getCreatedDate();
-                    hours += workLog.toString();
-
+                    hours += workLog.getTimeSpent() + " on ";
+                    hours += workLog.getCreatedDate() + " ";
+                    timesheet.add(workLog);
                 }
             }
             System.out.println(hours);
         }
-        return null;
+        return timesheet;
     }
 
     /**
