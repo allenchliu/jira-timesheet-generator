@@ -80,7 +80,11 @@ public class TimesheetGenerator {
         System.out.println("Searching for issues by JQL: " + jql + "...");
         // SearchResult result = jira.searchIssues(jql, countLoggedWork ? "*all,-comment" : "summary", "changelog", 1000, 0);
         SearchResult result = jira.searchIssues(jql, "project,issuetype,summary", "changelog", 10000, 0);
+        StringBuilder issues = filterResults(username, start, end, result);
+        return issues.toString();
+    }
 
+    private static StringBuilder filterResults(String username, Date start, Date end, SearchResult result) throws JiraException {
         System.out.println("Parsing " + result.issues.size() + " issues");
         StringBuilder issues = new StringBuilder();
         issues.append("Project\tType\tKey\tTitle\tUsername\tTime Spent\tDate\n");
@@ -100,7 +104,7 @@ public class TimesheetGenerator {
                 }
             }
         }
-        return issues.toString();
+        return issues;
     }
 
     private static Date parseDate(String str) throws ParseException {
