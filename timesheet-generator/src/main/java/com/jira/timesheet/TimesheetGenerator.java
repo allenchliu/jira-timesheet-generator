@@ -1,20 +1,13 @@
 package com.jira.timesheet;
 
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
 
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.lang.time.DateUtils;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.ssl.TrustStrategy;
 import org.apache.http.impl.client.DefaultHttpClient;
@@ -26,11 +19,6 @@ import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.JiraException;
 import net.rcarz.jiraclient.WorkLog;
 
-/**
- * Generates timesheets from JIRA changelogs of tickets updated or watched by current user.
- * 
- * @author Maros Vranec
- */
 public class TimesheetGenerator {
     /**
      * Starting point of the application.
@@ -41,29 +29,22 @@ public class TimesheetGenerator {
      */
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
-            System.err.println(
-                    "Usage: java -jar timesheet-generator.jar yourJiraUserName yourJiraPassword [month number, e.g. 10 for October, default is current month]");
+            System.err.println("Usage: java -jar timesheet-generator.jar yourJiraUserName yourJiraPassword startDate users endDate");
             return;
         }
 
         String username = args[0];
         String password = args[1];
-        Date startDate = DateUtils.truncate(new Date(), Calendar.MONTH);
-        if (args.length > 2 && !"*".equals(args[2])) {
-            int month = Integer.parseInt(args[2]) - 1;
-            startDate = DateUtils.setMonths(startDate, month);
-            if (startDate.after(new Date())) {
-                startDate = DateUtils.addYears(startDate, -1);
-            }
-        }
-        boolean countLoggedWork = args.length > 3 && Boolean.parseBoolean(args[3]);
+        String startDate = args[2];
+        String users = args.length > 3 ? args[3] : "all";
+        String endDate = args.length > 4 ? args[4] : "now()";
 
         try {
             JiraClient jira = prepareJiraClient(username, password);
-            List<WorkLog> timesheet = parseTimesheet(username, startDate, jira, countLoggedWork);
-            // System.out.println();
-            // System.out.println("Saving to CSV...");
-            // saveToCsv(startDate, timesheet, countLoggedWork, username);
+            String timesheet = parseTimesheet(jira, users, startDate, endDate);
+            System.out.println();
+            System.out.println("Saving to CSV...");
+            saveStringAsFile(timesheet, "timesheet.txt");
             // System.out.println();
             System.out.println("TIMESHEET GENERATED SUCCESSFULLY");
         }
@@ -81,49 +62,65 @@ public class TimesheetGenerator {
         }
     }
 
-    /**
-     * Parses JIRA timesheets using JIRA REST API.
-     * 
-     * @param username
-     *            Username for filtering.
-     * @param startDate
-     *            Starting date to start parsing.
-     * @param jira
-     *            JIRA REST API client.
-     * @param countLoggedWork
-     * @return Timesheets based on JIRAs' changelogs.
-     * @throws JiraException
-     *             In case anything went wrong.
-     */
-    private static List<WorkLog> parseTimesheet(String username, Date startDate, JiraClient jira, boolean countLoggedWork) throws JiraException {
-        List<WorkLog> timesheet = new ArrayList<WorkLog>();
-        String jql = "worklogDate >= '" + new SimpleDateFormat("yyyy-M-d").format(startDate) + "' and (worklogAuthor  = " + username + ")";
+    private static String parseTimesheet(JiraClient jira, String username, String startDate, String endDate) throws JiraException {
+        String jql = "worklogDate >= " + startDate;
+        if (endDate != null && !endDate.isEmpty() && !endDate.equalsIgnoreCase("now()")) {
+            jql += " and worklogDate <= " + endDate;
+        }
+        if (username != null && !username.isEmpty() && !username.equalsIgnoreCase("all")) {
+            jql += " and (worklogAuthor  in ( " + username + " ))";
+        }
         System.out.println("Searching for issues by JQL: " + jql + "...");
-        SearchResult result = jira.searchIssues(jql, countLoggedWork ? "*all,-comment" : "summary", "changelog", 1000, 0);
+        // SearchResult result = jira.searchIssues(jql, countLoggedWork ? "*all,-comment" : "summary", "changelog", 1000, 0);
+        SearchResult result = jira.searchIssues(jql, "project,issuetype,summary", "changelog", 10000, 0);
 
         System.out.println("Parsing " + result.issues.size() + " issues");
+        StringBuilder issues = new StringBuilder();
+        issues.append("Project\tType\tKey\tTitle\tUsername\tTime Spent\tDate\n");
         for (Issue issue : result.issues) {
-            System.out.print(issue + " ");
-            // for (ChangeLogEntry entry : issue.getChangeLog().getEntries()) {
-            // if (entry.getAuthor().getName().equals(username)) {
-            // Date date = DateUtils.truncate(entry.getCreated(), Calendar.DATE);
-            // if (!timesheet.containsKey(date)) {
-            // timesheet.put(date, new IssuesStats());
-            // }
-            // timesheet.get(date).addIssue(date, issue, username);
-            // }
-            // }
-            String hours = " ";
             for (WorkLog workLog : issue.getAllWorkLogs()) {
-                if (workLog.getAuthor().getName().equalsIgnoreCase(username)) {
-                    hours += workLog.getTimeSpent() + " on ";
-                    hours += workLog.getCreatedDate() + " ";
-                    timesheet.add(workLog);
+                if (username.equalsIgnoreCase("all") || (username.toLowerCase().contains(workLog.getAuthor().getName().toLowerCase()))) {
+                    // System.out.println(issue);
+                    issues.append(issue.getProject().getName()).append("\t");
+                    issues.append(issue.getIssueType().getName()).append("\t");
+                    issues.append(issue).append("\t");
+                    issues.append(issue.getSummary()).append("\t");
+                    issues.append(workLog.getAuthor()).append("\t");
+                    issues.append(toHours(workLog.getTimeSpent())).append("\t");
+                    issues.append(workLog.getCreatedDate()).append("\n");
                 }
             }
-            System.out.println(hours);
         }
-        return timesheet;
+        return issues.toString();
+    }
+
+    private static String toHours(String time) {
+        double hours = 0;
+        String tmp = time;
+        int indexOfw = time.indexOf("w");
+        if (indexOfw >= 0) {
+            tmp = time.substring(0, indexOfw);
+            time = time.substring(indexOfw + 1).trim();
+            hours += Integer.parseInt(tmp) * 40;
+        }
+        int indexOfd = time.indexOf("d");
+        if (indexOfd >= 0) {
+            tmp = time.substring(0, indexOfd);
+            time = time.substring(indexOfd + 1).trim();
+            hours += Integer.parseInt(tmp) * 8;
+        }
+        int indexOfh = time.indexOf("h");
+        if (indexOfh >= 0) {
+            tmp = time.substring(0, indexOfh);
+            time = time.substring(indexOfh + 1).trim();
+            hours += Integer.parseInt(tmp);
+        }
+        int indexOfm = time.indexOf("m");
+        if (indexOfm >= 0) {
+            tmp = time.substring(0, indexOfm);
+            hours += Integer.parseInt(tmp) / 60.0;
+        }
+        return hours + "";
     }
 
     /**
@@ -157,69 +154,17 @@ public class TimesheetGenerator {
         return jira;
     }
 
-    /**
-     * Saves timesheets to CSV.
-     * 
-     * @param startDate
-     *            Start date of the timesheets.
-     * @param timesheet
-     *            Timesheets themselves.
-     * @param countLoggedWork
-     *            Whether to count the logged work per day.
-     * @param username
-     *            Username making the timesheets.
-     * @throws IOException
-     *             In case writing CSV goes wrong.
-     */
-    private static void saveToCsv(Date startDate, Map<Date, IssuesStats> timesheet, boolean countLoggedWork, String username) throws IOException {
-        FileWriter writer = null;
-        try {
-            writer = new FileWriter(username + ".csv");
-            CSVPrinter csv = new CSVPrinter(writer, CSVFormat.EXCEL.withDelimiter(';'));
-            if (countLoggedWork) {
-                csv.printRecord("Date", "second", "third", null, "last");
-            }
-            else {
-                csv.printRecord("Date", "second", "third");
-            }
-            Date inMonth = DateUtils.addMonths(startDate, 1);
-            if (inMonth.after(new Date())) {
-                inMonth = new Date();
-            }
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("d.M.yyyy");
-
-            for (Date date = startDate; date.before(inMonth); date = DateUtils.addDays(date, 1)) {
-                csv.print(simpleDateFormat.format(date));
-                IssuesStats issues = timesheet.get(date);
-                if (issues != null) {
-                    csv.print(issues.getIssues());
-                    csv.print(8);
-
-                    if (countLoggedWork) {
-                        csv.print(null);
-                        csv.print(String.valueOf((issues.getLoggedSecondsOfWork() / 60 / 6) / (float) 10).replace('.', ','));
-                    }
-                }
-                else {
-                    csv.print(null);
-                    csv.print(null);
-                    csv.print(null);
-                    csv.print(null);
-                }
-                csv.println();
-            }
-
-            csv.close();
-            writer.close();
+    private static void saveStringAsFile(String content, String filePath) throws IOException {
+        File file = new File(filePath);
+        System.out.println("Writing as file: " + file.getAbsolutePath());
+        if (file.exists()) {
+            file.delete();
         }
-        finally {
-            if (writer != null) {
-                try {
-                    writer.close();
-                }
-                catch (IOException e1) {
-                }
-            }
-        }
+        FileWriter writer = new FileWriter(file);
+        BufferedWriter out = new BufferedWriter(writer);
+        writer.write(content);
+        // System.out.println(content);
+        writer.flush();
+        writer.close();
     }
 }
