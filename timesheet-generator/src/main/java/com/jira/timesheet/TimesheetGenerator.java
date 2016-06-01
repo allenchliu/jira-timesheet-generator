@@ -95,7 +95,7 @@ public class TimesheetGenerator {
                         issues.append(issue.getSummary()).append("\t");
                         issues.append(workLog.getAuthor()).append("\t");
                         issues.append(toHours(workLog.getTimeSpent())).append("\t");
-                        issues.append(workLog.getCreatedDate()).append("\n");
+                        issues.append(new SimpleDateFormat("MM/dd/yyyy").format(workLog.getCreatedDate())).append("\n");
                     }
                 }
             }
