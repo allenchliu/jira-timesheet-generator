@@ -1,0 +1,13 @@
+Project	Type	Key	Title	Username	Time Spent	DateSBG - Mobile	Task	MOBL-916	Adding packaging images on mobile - all countries	Allen	2.0	Fri May 13 00:00:00 CST 2016
+SBG - Desktop	Improvement	DESK-8050	Clean up languages folder	Allen	1.0	Mon May 23 00:00:00 CST 2016
+SBG - Desktop	Bug	DESK-8037	Dolce & Gabbana banners not loading - AU,US,CA, HK - desktop	Allen	1.0	Mon May 09 00:00:00 CST 2016
+SBG - Desktop	Bug	DESK-8037	Dolce & Gabbana banners not loading - AU,US,CA, HK - desktop	Allen	1.0	Thu May 12 00:00:00 CST 2016
+SBG - Desktop	Task	DESK-8035	OMNI -- Remove all 8  'iContact' stores	Allen	1.0	Fri May 13 00:00:00 CST 2016
+SBG - Desktop	Bug	DESK-8034	e-mail not being accepted - checkout page - all countries	Allen	2.0	Thu May 12 00:00:00 CST 2016
+SBG - Desktop	New Feature	DESK-8008	Cart  5.0	Allen	8.0	Tue May 17 00:00:00 CST 2016
+SBG - Desktop	New Feature	DESK-8008	Cart  5.0	Allen	6.0	Mon May 23 00:00:00 CST 2016
+SBG - Desktop	Bug	DESK-8000	Membership Password cannot be reset	Allen	1.0	Mon May 23 00:00:00 CST 2016
+SBG - Desktop	New Feature	DESK-3045	Checkout 5.0	Allen	8.0	Tue May 24 00:00:00 CST 2016
+SBG - Desktop	New Feature	DESK-3045	Checkout 5.0	Allen	8.0	Thu May 26 00:00:00 CST 2016
+SBG - Desktop	New Feature	DESK-3045	Checkout 5.0	Allen	8.0	Fri May 27 00:00:00 CST 2016
+SBG - Desktop	Task	DESK-2759	Materials Filter- Reactivate and Add New Materials	Allen	4.0	Thu May 12 00:00:00 CST 2016
