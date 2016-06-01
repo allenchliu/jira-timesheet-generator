@@ -7,6 +7,10 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.ssl.TrustStrategy;
@@ -35,9 +39,9 @@ public class TimesheetGenerator {
 
         String username = args[0];
         String password = args[1];
-        String startDate = args[2];
+        String startDate = args[2].contains("\"") ? args[2] : "\"" + args[2] + "\"";
         String users = args.length > 3 ? args[3] : "all";
-        String endDate = args.length > 4 ? args[4] : "now()";
+        String endDate = args.length > 4 ? (args[4].contains("\"") ? args[4] : "\"" + args[4] + "\"") : "now()";
 
         try {
             JiraClient jira = prepareJiraClient(username, password);
@@ -62,12 +66,15 @@ public class TimesheetGenerator {
         }
     }
 
-    private static String parseTimesheet(JiraClient jira, String username, String startDate, String endDate) throws JiraException {
+    private static String parseTimesheet(JiraClient jira, String username, String startDate, String endDate) throws JiraException, ParseException {
+        Date start = parseDate(startDate);
+        Date end = new Date();
         String jql = "worklogDate >= " + startDate;
-        if (endDate != null && !endDate.isEmpty() && !endDate.equalsIgnoreCase("now()")) {
+        if (!endDate.equalsIgnoreCase("now()")) {
             jql += " and worklogDate <= " + endDate;
+            end = parseDate(endDate);
         }
-        if (username != null && !username.isEmpty() && !username.equalsIgnoreCase("all")) {
+        if (!username.equalsIgnoreCase("all")) {
             jql += " and (worklogAuthor  in ( " + username + " ))";
         }
         System.out.println("Searching for issues by JQL: " + jql + "...");
@@ -80,18 +87,32 @@ public class TimesheetGenerator {
         for (Issue issue : result.issues) {
             for (WorkLog workLog : issue.getAllWorkLogs()) {
                 if (username.equalsIgnoreCase("all") || (username.toLowerCase().contains(workLog.getAuthor().getName().toLowerCase()))) {
-                    // System.out.println(issue);
-                    issues.append(issue.getProject().getName()).append("\t");
-                    issues.append(issue.getIssueType().getName()).append("\t");
-                    issues.append(issue).append("\t");
-                    issues.append(issue.getSummary()).append("\t");
-                    issues.append(workLog.getAuthor()).append("\t");
-                    issues.append(toHours(workLog.getTimeSpent())).append("\t");
-                    issues.append(workLog.getCreatedDate()).append("\n");
+                    if (workLog.getCreatedDate().compareTo(start) >= 0 && workLog.getCreatedDate().before(end)) {
+                        // System.out.println(issue);
+                        issues.append(issue.getProject().getName()).append("\t");
+                        issues.append(issue.getIssueType().getName()).append("\t");
+                        issues.append(issue).append("\t");
+                        issues.append(issue.getSummary()).append("\t");
+                        issues.append(workLog.getAuthor()).append("\t");
+                        issues.append(toHours(workLog.getTimeSpent())).append("\t");
+                        issues.append(workLog.getCreatedDate()).append("\n");
+                    }
                 }
             }
         }
         return issues.toString();
+    }
+
+    private static Date parseDate(String str) throws ParseException {
+        DateFormat format;
+        str = str.replaceAll("\"", "");
+        if (str.contains("/")) {
+            format = new SimpleDateFormat("yyyy/MM/dd");
+        }
+        else {
+            format = new SimpleDateFormat("yyyy-MM-dd");
+        }
+        return format.parse(str);
     }
 
     private static String toHours(String time) {
