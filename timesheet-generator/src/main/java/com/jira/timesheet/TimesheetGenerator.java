@@ -80,7 +80,7 @@ public class TimesheetGenerator {
         }
         System.out.println("Searching for issues by JQL: " + jql + "...");
         // SearchResult result = jira.searchIssues(jql, countLoggedWork ? "*all,-comment" : "summary", "changelog", 1000, 0);
-        SearchResult result = jira.searchIssues(jql, "project,issuetype,summary", "changelog", 10000, 0);
+        SearchResult result = jira.searchIssues(jql, "project,issuetype,summary", null, 10000, 0);
         StringBuilder issues = filterResults(username, start, end, result);
         return issues.toString();
     }
