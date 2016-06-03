@@ -32,23 +32,24 @@ public class TimesheetGenerator {
      *             In case something went terribly wrong.
      */
     public static void main(String[] args) throws Exception {
-        if (args.length < 2) {
-            System.err.println("Usage: java -jar timesheet-generator.jar yourJiraUserName yourJiraPassword startDate users endDate");
+        if (args.length < 4) {
+            System.err.println("Usage: java -jar timesheet-generator.jar yourJiraUserName yourJiraPassword exportedfFlePath startDate users endDate");
             return;
         }
 
         String username = args[0];
         String password = args[1];
-        String startDate = args[2].contains("\"") ? args[2] : "\"" + args[2] + "\"";
-        String users = args.length > 3 ? args[3] : "all";
-        String endDate = args.length > 4 ? (args[4].contains("\"") ? args[4] : "\"" + args[4] + "\"") : "now()";
+        String filePath = args[2];
+        String startDate = args[3].contains("\"") ? args[3] : "\"" + args[3] + "\"";
+        String users = args.length > 4 ? args[4] : "all";
+        String endDate = args.length > 5 ? (args[5].contains("\"") ? args[5] : "\"" + args[5] + "\"") : "now()";
 
         try {
             JiraClient jira = prepareJiraClient(username, password);
             String timesheet = parseTimesheet(jira, users, startDate, endDate);
             System.out.println();
             System.out.println("Saving to CSV...");
-            saveStringAsFile(timesheet, "timesheet.txt");
+            saveStringAsFile(timesheet, filePath);
             // System.out.println();
             System.out.println("TIMESHEET GENERATED SUCCESSFULLY");
         }
